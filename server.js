@@ -42,11 +42,18 @@ const AUDIT_TABLE = process.env.AUDIT_TABLE || "ContactAuditLogs";
 
 async function writeAuditLog(action, phone, details) {
   try {
+    const safeDetails = {
+      ...details,
+      created_at: details.created_at
+        ? new Date(details.created_at).toISOString()
+        : null
+    };
+
     const auditItem = {
       eventId: uuidv4(),
       action,
       phone,
-      details,
+      details: safeDetails,
       hostname: os.hostname(),
       timestamp: new Date().toISOString()
     };
