@@ -79,6 +79,45 @@ app.get("/api/contacts/:phone", async (req, res) => {
   }
 });
 
+// app.post("/api/contacts", async (req, res) => {
+//   console.log("POST /api/contacts called");
+//   console.log("Request body:", req.body);
+
+//   try {
+//     const { firstName, lastName, email, phone } = req.body;
+
+//     if (!firstName || !lastName || !email || !phone) {
+//       console.log("Validation failed: missing required fields");
+//       return res.status(400).json({
+//         message: "firstName, lastName, email, and phone are required"
+//       });
+//     }
+
+//     const result = await pool.query(
+//       `INSERT INTO contacts (phone, "firstName", "lastName", email)
+//        VALUES ($1, $2, $3, $4)
+//        RETURNING phone, "firstName", "lastName", email, created_at`,
+//       [phone, firstName, lastName, email]
+//     );
+
+//     console.log("Contact created:", result.rows[0]);
+//     res.status(201).json(result.rows[0]);
+//   } catch (err) {
+//     console.error("Error creating contact:", err);
+
+//     if (err.code === "23505") {
+//       return res.status(409).json({
+//         message: "Contact with this phone number already exists"
+//       });
+//     }
+
+//     res.status(500).json({
+//       message: "Error creating contact",
+//       error: err.message
+//     });
+//   }
+// });
+
 app.post("/api/contacts", async (req, res) => {
   console.log("POST /api/contacts called");
   console.log("Request body:", req.body);
@@ -87,7 +126,6 @@ app.post("/api/contacts", async (req, res) => {
     const { firstName, lastName, email, phone } = req.body;
 
     if (!firstName || !lastName || !email || !phone) {
-      console.log("Validation failed: missing required fields");
       return res.status(400).json({
         message: "firstName, lastName, email, and phone are required"
       });
@@ -101,10 +139,14 @@ app.post("/api/contacts", async (req, res) => {
     );
 
     console.log("Contact created:", result.rows[0]);
+
     res.status(201).json(result.rows[0]);
+
   } catch (err) {
+
     console.error("Error creating contact:", err);
 
+    // Duplicate phone number
     if (err.code === "23505") {
       return res.status(409).json({
         message: "Contact with this phone number already exists"
