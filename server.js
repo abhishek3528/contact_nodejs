@@ -30,20 +30,22 @@ const pool = new Pool({
 });
 
 app.get("/", (req, res) => {
-  res.json({
-    message: "Contact Manager Backend Running with PostgreSQL"
-  });
+  console.log("Health check API called");
+  res.json({ message: "Contact Manager Backend Running with PostgreSQL" });
 });
 
-// GET all contacts
 app.get("/api/contacts", async (req, res) => {
+  console.log("GET /api/contacts called");
+
   try {
     const result = await pool.query(
       'SELECT phone, "firstName", "lastName", email, created_at FROM contacts ORDER BY created_at DESC'
     );
 
+    console.log(`Fetched ${result.rows.length} contacts`);
     res.json(result.rows);
   } catch (err) {
+    console.error("Error fetching contacts:", err);
     res.status(500).json({
       message: "Error fetching contacts",
       error: err.message
@@ -51,24 +53,25 @@ app.get("/api/contacts", async (req, res) => {
   }
 });
 
-// GET one contact by phone
 app.get("/api/contacts/:phone", async (req, res) => {
-  try {
-    const { phone } = req.params;
+  const { phone } = req.params;
+  console.log(`GET /api/contacts/${phone} called`);
 
+  try {
     const result = await pool.query(
       'SELECT phone, "firstName", "lastName", email, created_at FROM contacts WHERE phone=$1',
       [phone]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Contact not found"
-      });
+      console.log(`Contact not found for phone: ${phone}`);
+      return res.status(404).json({ message: "Contact not found" });
     }
 
+    console.log(`Contact found for phone: ${phone}`);
     res.json(result.rows[0]);
   } catch (err) {
+    console.error("Error fetching contact:", err);
     res.status(500).json({
       message: "Error fetching contact",
       error: err.message
@@ -76,12 +79,15 @@ app.get("/api/contacts/:phone", async (req, res) => {
   }
 });
 
-// CREATE contact
 app.post("/api/contacts", async (req, res) => {
+  console.log("POST /api/contacts called");
+  console.log("Request body:", req.body);
+
   try {
     const { firstName, lastName, email, phone } = req.body;
 
     if (!firstName || !lastName || !email || !phone) {
+      console.log("Validation failed: missing required fields");
       return res.status(400).json({
         message: "firstName, lastName, email, and phone are required"
       });
@@ -94,8 +100,11 @@ app.post("/api/contacts", async (req, res) => {
       [phone, firstName, lastName, email]
     );
 
+    console.log("Contact created:", result.rows[0]);
     res.status(201).json(result.rows[0]);
   } catch (err) {
+    console.error("Error creating contact:", err);
+
     if (err.code === "23505") {
       return res.status(409).json({
         message: "Contact with this phone number already exists"
@@ -109,13 +118,16 @@ app.post("/api/contacts", async (req, res) => {
   }
 });
 
-// UPDATE contact by phone
 app.put("/api/contacts/:phone", async (req, res) => {
+  const oldPhone = req.params.phone;
+  console.log(`PUT /api/contacts/${oldPhone} called`);
+  console.log("Request body:", req.body);
+
   try {
-    const oldPhone = req.params.phone;
     const { firstName, lastName, email, phone } = req.body;
 
     if (!firstName || !lastName || !email || !phone) {
+      console.log("Validation failed: missing required fields");
       return res.status(400).json({
         message: "firstName, lastName, email, and phone are required"
       });
@@ -133,13 +145,15 @@ app.put("/api/contacts/:phone", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Contact not found"
-      });
+      console.log(`Contact not found for update: ${oldPhone}`);
+      return res.status(404).json({ message: "Contact not found" });
     }
 
+    console.log("Contact updated:", result.rows[0]);
     res.json(result.rows[0]);
   } catch (err) {
+    console.error("Error updating contact:", err);
+
     if (err.code === "23505") {
       return res.status(409).json({
         message: "Another contact with this phone number already exists"
@@ -153,26 +167,25 @@ app.put("/api/contacts/:phone", async (req, res) => {
   }
 });
 
-// DELETE contact by phone
 app.delete("/api/contacts/:phone", async (req, res) => {
-  try {
-    const { phone } = req.params;
+  const { phone } = req.params;
+  console.log(`DELETE /api/contacts/${phone} called`);
 
+  try {
     const result = await pool.query(
       "DELETE FROM contacts WHERE phone=$1 RETURNING *",
       [phone]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Contact not found"
-      });
+      console.log(`Contact not found for delete: ${phone}`);
+      return res.status(404).json({ message: "Contact not found" });
     }
 
-    res.json({
-      message: "Contact deleted successfully"
-    });
+    console.log("Contact deleted:", result.rows[0]);
+    res.json({ message: "Contact deleted successfully" });
   } catch (err) {
+    console.error("Error deleting contact:", err);
     res.status(500).json({
       message: "Error deleting contact",
       error: err.message
