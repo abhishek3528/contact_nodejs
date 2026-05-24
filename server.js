@@ -3,6 +3,9 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const os = require("os");
 const { Pool } = require("pg");
+const { v4: uuidv4 } = require("uuid");
+const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
 
 dotenv.config();
 
@@ -29,6 +32,37 @@ const pool = new Pool({
     rejectUnauthorized: false
   }
 });
+
+const dynamoClient = new DynamoDBClient({
+  region: process.env.AWS_REGION || "us-east-2"
+});
+
+const dynamoDocClient = DynamoDBDocumentClient.from(dynamoClient);
+const AUDIT_TABLE = process.env.AUDIT_TABLE || "ContactAuditLogs";
+
+async function writeAuditLog(action, phone, details) {
+  try {
+    const auditItem = {
+      eventId: uuidv4(),
+      action,
+      phone,
+      details,
+      hostname: os.hostname(),
+      timestamp: new Date().toISOString()
+    };
+
+    await dynamoDocClient.send(
+      new PutCommand({
+        TableName: AUDIT_TABLE,
+        Item: auditItem
+      })
+    );
+
+    console.log("Audit log written:", auditItem);
+  } catch (err) {
+    console.error("Error writing audit log:", err);
+  }
+}
 
 app.get("/", (req, res) => {
   console.log("Health check API called");
@@ -107,6 +141,9 @@ app.post("/api/contacts", async (req, res) => {
     );
 
     console.log("Contact created:", result.rows[0]);
+
+    await writeAuditLog("CREATE_CONTACT", phone, result.rows[0]);
+
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("Error creating contact:", err);
@@ -156,6 +193,9 @@ app.put("/api/contacts/:phone", async (req, res) => {
     }
 
     console.log("Contact updated:", result.rows[0]);
+
+    await writeAuditLog("UPDATE_CONTACT", phone, result.rows[0]);
+
     res.json(result.rows[0]);
   } catch (err) {
     console.error("Error updating contact:", err);
@@ -190,6 +230,9 @@ app.delete("/api/contacts/:phone", async (req, res) => {
     }
 
     console.log("Contact deleted:", result.rows[0]);
+
+    await writeAuditLog("DELETE_CONTACT", phone, result.rows[0]);
+
     res.json({
       message: "Contact deleted successfully"
     });
